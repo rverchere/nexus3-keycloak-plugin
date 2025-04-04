@@ -154,14 +154,20 @@ public class KeycloakAdminClient {
 
             if (isEmail) {
                 httpMethod = httpMethod.param("email", userNameOrEmail);
-            } else {
-                httpMethod = httpMethod.param("username", userNameOrEmail);
+                users = httpMethod.authentication()
+                                .response()
+                                .json(new TypeReference<List<UserRepresentation>>() {})
+                                .execute();
             }
-
-            users = httpMethod.authentication()
-                              .response()
-                              .json(new TypeReference<List<UserRepresentation>>() {})
-                              .execute();
+            // if UserName is like an email, but different than email, recheck with username
+            if (users == null) {
+                httpMethod = httpMethod.param("username", userNameOrEmail);
+                users = httpMethod.authentication()
+                                .response()
+                                .json(new TypeReference<List<UserRepresentation>>() {})
+                                .execute();
+                isEmail = false; // Use username
+            }
         }
 
         if (users != null) {
