@@ -143,40 +143,48 @@ public class KeycloakAdminClient {
             HttpMethod<UserRepresentation> httpMethod
                     = getHttp().get("/admin/realms/%s/clients/%s/service-account-user", getRealm(), client.getId());
 
-            logger.info("Try to get UserRepresentation for the service account {}", userNameOrEmail);
+            logger.debug("Try to get UserRepresentation for the service account {}", userNameOrEmail);
 
             UserRepresentation user = httpMethod.authentication().response().json(UserRepresentation.class).execute();
             if (user != null) {
                 users = Collections.singletonList(user);
             }
         } else {
+            logger.debug("Try to get UserRepresentation for the user {}", userNameOrEmail);
             HttpMethod<List<UserRepresentation>> httpMethod = getHttp().get("/admin/realms/%s/users", getRealm());
-
             if (isEmail) {
                 httpMethod = httpMethod.param("email", userNameOrEmail);
                 users = httpMethod.authentication()
                                 .response()
                                 .json(new TypeReference<List<UserRepresentation>>() {})
                                 .execute();
+                if (users == null || users.isEmpty()) {
+                    httpMethod = getHttp().get("/admin/realms/%s/users", getRealm());
+                    httpMethod = httpMethod.param("username", userNameOrEmail);
+                    users = httpMethod.authentication()
+                                    .response()
+                                    .json(new TypeReference<List<UserRepresentation>>() {})
+                                    .execute();
+                    isEmail = false; // Use username
+                }
             }
-            // if UserName is like an email, but different than email, recheck with username
-            if (users == null) {
+            else {
                 httpMethod = httpMethod.param("username", userNameOrEmail);
                 users = httpMethod.authentication()
                                 .response()
                                 .json(new TypeReference<List<UserRepresentation>>() {})
                                 .execute();
-                isEmail = false; // Use username
             }
         }
 
-        if (users != null) {
+        if (users != null && !users.isEmpty()) {
             for (UserRepresentation user : users) {
                 // Note: We need to avoid someone try to register email as username to fake others.
                 boolean matched = isEmail
                                   ? userNameOrEmail.equals(user.getEmail())
                                   : userNameOrEmail.equals(user.getUsername());
                 if (matched) {
+                    logger.debug("User {} found", userNameOrEmail);
                     return user;
                 }
             }

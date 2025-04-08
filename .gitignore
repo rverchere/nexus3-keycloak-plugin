@@ -5,6 +5,7 @@ bundle
 .classpath
 .project
 .idea
+.m2
 
 etc/keycloak.json
 
